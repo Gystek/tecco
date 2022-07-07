@@ -1,0 +1,304 @@
+=head1 NAME
+
+tecco - test C code
+
+=head1 SYNOPSIS
+
+B<cc> [I<FLAG>...] -ltecco FILE...
+
+B<#include <tecco.h>>
+
+=head1 DESCRIPTION
+
+This manpage documents the features from the B<TECCO> library.
+
+TECCO is a unit-teting library for C (and C++ if you find an old
+enough compiler) code.
+
+=head1 MACROS
+
+=head2 tecco_assert_eq(x, y)
+
+This macro checks for equality between I<x> and I<y> and exits with an
+error code and a message on C</dev/stderr> if it is not the case.
+
+=head1 VARIABLES
+
+=head2 __test_count
+
+A static variable serving as a counter, incremented by 1 each time a
+test is added to a suite and displayed when calling
+C<tecco_output_tests>. B<You shall not, in any case, modify this
+variable manually>.
+
+=head1 UTILITY FUNCTIONS
+
+=head2 tecco_init_runner
+
+Initialize a new test runner and return it.
+
+=head2 tecco_destroy_runner
+
+Free a test runner and all the suites and tests it contains.
+
+=head2 tecco_add_suite
+
+Add a new test to a test runner and return a pointer to it.
+
+On failure, this function returns I<NULL> and displays an appropriate message.
+
+=over 8
+
+=item B<struct tecco_runner *>I<runner>
+
+The runner to add the suite to.
+
+=item B<const char *>I<name>
+
+The name of the suite to add.
+
+=item B<int (*>I<setup>B<) (void)>
+
+The function to run before running the suite. If it returns a non-zero
+value, running the suite is aborted.
+
+=item B<int (*>I<cleanup>B<) (void)>
+
+The function to run after running the suite. If it returns a non-zero
+value, the error is transmitted to the toplevel.
+
+=back
+
+=head2 tecco_add_test
+
+Add a test to a suite and return a pointer to it. B<This pointer shall
+not be used for anything expect being checked againt C<NULL> to detect
+errors>.
+
+On failure, this function returns I<NULL> and displays an appropriate message.
+
+=over 8
+
+=item B<struct tecco_suite *>I<suite>
+
+The suite to add the test to.
+
+=item B<const char *>I<name>
+
+The name of the test to add.
+
+=item B<int (*>I<fun>B<) (void)>
+
+The function to run as the test body.
+
+=back
+
+=head2 tecco_run_tests
+
+Run the I<tests> contained in each suite of the I<runner>'s I<suites>
+
+On failure, this functions returns -1 and displays an appropriate message.
+
+=over 8
+
+=item B<struct tecco_runner *>I<runner>
+
+The runner to run the tests from.
+
+=back
+
+=head2 tecco_output_tests
+
+Display the output of the I<tests> contained in the I<suites> of a
+test runner.
+
+=over 8
+
+=item B<struct tecco_runner *>I<runner>
+
+The runner to get the I<tests> from.
+
+=item B<int> I<flags>
+
+Bitwise OR-ed I<tecco_flag>(s) modifying the output rules. If you do not
+want to apply any modificator, set I<flags> to 0.
+
+=back
+
+=head1 DATA STRUCTURES
+
+TECCO exposes the following data structures in order to build test
+suites. B<In no case> those structures shall be created manually, use
+the I<UTILITY FUNCTIONS> described below.
+
+=head2 tecco_test
+
+A structure representing a single test unit.
+
+=head3 .name
+
+The name of the test being run, this is not used except for debugging
+and user interface purposes.
+
+=head3 .test
+
+The function run when testing. It may L<exit(3)> or L<abort(3)>.
+
+=head3 .stdout .stderr .result
+
+Exit code, standard output and standard error of the run test, kept only for
+debugging and user interface purposes.
+
+=head2 tecco_suite
+
+A structure representing a I<test suite>, i.e. a named collection of
+test units.
+
+=head3 .name
+
+The name of the suite being run, this is not used except for debugging
+and user interface purposes.
+
+=head3 .tests .test_c
+
+Respectively the test collection and its size.
+
+=head3 .setup .cleanup
+
+Respectively the functions run before and after the execution of the
+test suite.
+
+=head2 tecco_runner
+
+The main data structure of TECCO, containing a collection of suites
+(I<.suites>) and the size of this collection (I<.suite_c>).
+
+=head2 tecco_flag
+
+The enumeration containing the available flags for priting the results
+of the tests run by TECCO.
+
+=over 8
+
+=item TECCO_NO_OUTPUT_FAILURE
+
+Don't output the error code, standard
+error and standard output of a test if it failed.
+
+=item TECCO_NO_OUTPUT_SUCCESS
+
+Don't output the error code, standard
+error and standard output of a test if it failed.
+
+=item TECCO_VERBOSE_OUTPUT
+
+Display test output using nice unicode
+characaters and more than one line per test.
+
+=item TECCO_COLOURS
+
+Enable coloured output. Do not use this
+if you're not on a terminal supporting ANSI escape codes.
+
+=back
+
+=head1 RETURN VALUE
+
+Functions returning an I<int>eger shall return 0 on success and a
+non-zero value on failure.
+
+Functions returning a pointer shall return I<NULL> on failrue.
+
+=head1 NOTES
+
+Due to the use of global variables, B<only one I<struct tecco_runner>
+shall be used at a time>.
+
+=head1 EXAMPLES
+
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <tecco.h>
+
+    static int
+    success_setup (void)
+    {
+      puts ("* Setting up the success suite");
+      return 0;
+    }
+
+    /* -------------------- */
+
+    static int
+    success (void)
+    {
+      return 0;
+    }
+
+    static int
+    error (void)
+    {
+      return -1;
+    }
+
+    static int
+    panic (void)
+    {
+      tecco_assert_eq (1, 2);
+    }
+
+    static int
+    output (void)
+    {
+      puts ("some information");
+      fprintf (stderr, "error: not yet implemented\n");
+      exit (42);
+    }
+
+    int
+    main (void)
+    {
+      struct tecco_runner runner;
+      struct tecco_suite  *suite;
+
+      runner = tecco_init_runner ();
+
+      suite = tecco_add_suite (&runner, "success suite", &success_setup, NULL);
+      if (suite == NULL)
+        goto destroy;
+
+      if (tecco_add_test (suite, "successful 0", &success) == NULL)
+        goto destroy;
+
+      suite = tecco_add_suite (&runner, "failure suite", NULL, NULL);
+      if (suite == NULL)
+        goto destroy;
+
+      if (tecco_add_test (suite, "simple failure", &error) == NULL
+          || tecco_add_test (suite, "panicking assert", &panic) == NULL
+          || tecco_add_test (suite, "verbose failure", &output) == NULL)
+        goto destroy;
+
+      if (tecco_run_tests (&runner) != 0)
+        goto destroy;
+
+      tecco_output_tests (runner,
+                          TECCO_NO_OUTPUT_SUCCESS
+                          | TECCO_VERBOSE_OUTPUT
+                          | TECCO_COLOURS);
+
+      tecco_destroy_runner (runner);
+      return 0;
+
+    destroy:
+      tecco_destroy_runner (runner);
+      return -1;
+    }
+
+=head1 AUTHORS
+
+Written by Gustek <gustek@riseup.net>.
+
+=head1 COPYRIGHT
+
+Copyright (C) 2022 Gustek <gustek@riseup.net>
