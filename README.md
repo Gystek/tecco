@@ -20,6 +20,7 @@ necessary as root):
 Using tecco
 ------------
 Just link libtecco.a to your executable at link time.
+See `tecco(3)` for more details.
 
 Credits
 -------
