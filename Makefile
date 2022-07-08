@@ -28,7 +28,7 @@ install: libtecco.a
 	sed "s/VERSION/$(VERSION)/g" < tecco.3 > $(DESTDIR)$(MANPREFIX)/man3/tecco.3
 	chmod 644 $(DESTDIR)$(MANPREFIX)/man3/tecco.3
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/lib/libtecco.3
+	rm -f $(DESTDIR)$(PREFIX)/lib/libtecco.a
 	rm -f $(DESTDIR)$(MANPREFIX)/man3/tecco.3
 
 .PHONY: all clean dist install uninstall
